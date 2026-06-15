@@ -1,68 +1,63 @@
-# TLG Project Timelines
+# Team Topic Modeler
 
-Probabilistic project duration forecasting using Monte Carlo simulation with Bayesian updating. Takes two-point time estimates (optimistic, pessimistic) from subject matter experts, imputes a most-likely midpoint, and produces P50/P90 confidence intervals corrected for systemic estimation bias using historical actuals.
+This repository is a vibe-coded prototype for exploring topic modeling over CSV data using BERTopic. It combines a Python backend with a lightweight Streamlit UI so you can upload documents, train a topic model, inspect topics, and save/load models locally.
+
+This project is intentionally experimental: the goal is rapid iteration and proof-of-concept exploration, not production-grade deployment.
+
+## What it does
+
+- Upload a CSV file through a Streamlit app
+- Select a text column to analyze
+- Train a BERTopic-based topic model locally
+- View topic information in a dataframe
+- Save and reload trained models from the local saved_models directory
+
+## Tech stack
+
+- Python
+- uv for dependency management
+- BERTopic
+- Sentence Transformers
+- UMAP
+- HDBSCAN
+- scikit-learn
+- Streamlit
 
 ## Setup
 
 Requires Python 3.10+ and [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uv sync
+uv venv
+uv pip install -e ".[dev]"
 ```
 
-## Data
+## Running the app
 
-Place CSV files in the `data_synthetic/` directory. Two formats are used:
-
-- **Wide format** (`Raw-data-wide.csv`) — one row per respondent, with columns like `Phase 1 Minimum`, `Phase 1 Maximum`, etc. Used by the Monte Carlo simulation.
-- **Long format** (`Raw-data-long.csv`) — one row per respondent/scenario combination, with columns `Team`, `Scenario`, `Phase 1`...`Phase 5`. Used by the descriptive analysis.
-
-## Running the pipeline
-
-A `Makefile` is provided to run both scripts with their dependencies tracked. Make will only rerun a step if its inputs have changed.
+Start the Streamlit interface:
 
 ```bash
-# Run everything (simulation + descriptive analysis)
-make
+make run
+```
 
-# Run just the Monte Carlo simulation
-make simulation
+Or run it directly:
 
-# Run just the descriptive analysis
-make descriptive
+```bash
+uv run streamlit run src/app.py
+```
 
-# Run the test suite
+## Running tests
+
+```bash
 make test
-
-# Remove all generated outputs
-make clean
 ```
 
-Outputs are saved to `output/simulation/` and `output/descriptive/`.
+## Project structure
 
-### Running scripts individually
+- src/topic_modeler.py - backend topic modeling class
+- src/app.py - Streamlit frontend
+- tests/test_topic_modeler.py - backend tests
 
-You can also run each script directly:
+## Notes
 
-```bash
-uv run python MC_simulation.py data_synthetic/Raw-data-wide.csv output/simulation
-uv run python Descriptive.py data_synthetic/Raw-data-long.csv output/descriptive
-```
-
-## Scripts
-
-### `MC_simulation.py`
-
-Runs 10,000 Monte Carlo simulations using PERT-Beta distributions with an AR(1) copula correlation structure across stages. Calibrates estimates against historical actuals via Normal-Inverse-Gamma Bayesian updating and produces three plots:
-
-- Systemic error multiplier KDEs (prior vs posterior)
-- Project duration histograms (baseline vs bias-corrected)
-- Task-level posterior distributions vs historical observations
-
-### `Descriptive.py`
-
-Aggregates survey responses by team and scenario, produces a stacked bar chart comparing Max vs Min timelines, and writes an HTML summary table.
-
-### `colour_palette.py`
-
-Centralised TLG brand colour definitions and `apply_theme()` function used across both scripts for consistent matplotlib theming.
+This is a prototype built quickly for exploration and demos. Expect rough edges, experimental behavior, and plenty of room for improvement.
