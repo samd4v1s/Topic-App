@@ -1,4 +1,4 @@
-from simulation import nig_update
+from archive.simulation import nig_update
 
 
 def test_no_observations_returns_prior():

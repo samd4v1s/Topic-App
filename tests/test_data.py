@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from data import load_survey_data, select_columns, filter_spurious_responses
+from archive.data import load_survey_data, select_columns, filter_spurious_responses
 
 
 def test_select_columns_finds_matching_columns():

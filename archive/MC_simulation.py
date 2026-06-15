@@ -7,9 +7,9 @@ import pandas as pd
 import logging
 import typer
 
-from colour_palette import apply_theme
-from data import load_survey_data, select_columns, filter_spurious_responses
-from simulation import nig_update
+from archive.colour_palette import apply_theme
+from archive.data import load_survey_data, select_columns, filter_spurious_responses
+from archive.simulation import nig_update
 
 # ==========================================
 # 0. AUDIT & ENVIRONMENT SETUP

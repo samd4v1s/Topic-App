@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import typer
 
-from colour_palette import apply_theme
+from archive.colour_palette import apply_theme
 
 apply_theme()
 
