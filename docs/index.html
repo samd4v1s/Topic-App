@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Team Topic Modeler</title>
+<style>
+  :root { font-family: system-ui, sans-serif; line-height: 1.5; }
+  body { max-width: 860px; margin: 2rem auto; padding: 0 1rem; color: #1a1a2e; }
+  h1 { margin-bottom: .2rem; }
+  .muted { color: #666; }
+  .row { display: flex; gap: 1rem; align-items: end; flex-wrap: wrap; margin: 1rem 0; }
+  label { display: block; font-size: .85rem; font-weight: 600; margin-bottom: .25rem; }
+  select, input[type=number] { padding: .4rem; font-size: 1rem; }
+  button { padding: .5rem 1rem; font-size: 1rem; cursor: pointer; border: 0;
+           border-radius: 6px; background: #4f46e5; color: #fff; }
+  button:disabled { background: #aaa; cursor: not-allowed; }
+  table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+  th, td { border: 1px solid #ddd; padding: .5rem; text-align: left; vertical-align: top; }
+  th { background: #f3f3fb; }
+  tr.outlier td { color: #888; font-style: italic; }
+  #status { font-size: .9rem; color: #4f46e5; min-height: 1.2em; }
+  .err { color: #c0392b; }
+</style>
+</head>
+<body>
+<h1>Team Topic Modeler</h1>
+<p class="muted">Upload a CSV, pick a text column, and find topics — semantic
+embeddings + clustering, running entirely in your browser. No server, no upload.</p>
+
+<div class="row">
+  <div>
+    <label for="file">CSV file</label>
+    <input type="file" id="file" accept=".csv" disabled />
+  </div>
+  <div>
+    <label for="column">Text column</label>
+    <select id="column" disabled></select>
+  </div>
+  <div>
+    <label for="minsize">Min topic size</label>
+    <input type="number" id="minsize" value="5" min="2" max="100" />
+  </div>
+  <button id="run" disabled>Analyze</button>
+</div>
+
+<p id="status">Loading Python runtime…</p>
+<div id="results"></div>
+
+<script type="module">
+import { loadPyodide } from "https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.mjs";
+import { pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2";
+
+const EMBED_MODEL = "Xenova/all-MiniLM-L6-v2";
+const $ = (id) => document.getElementById(id);
+const status = (msg, isErr) => { $("status").textContent = msg; $("status").className = isErr ? "err" : ""; };
+
+let pyodide, embedder, csvText = null;
+
+async function boot() {
+  pyodide = await loadPyodide();
+  status("Loading pandas + scikit-learn (~30s first time)…");
+  await pyodide.loadPackage(["pandas", "scikit-learn"]);
+  pyodide.runPython(await (await fetch("topic_pyodide.py")).text());
+
+  status(`Loading embedding model ${EMBED_MODEL} (~25MB, cached after first load)…`);
+  embedder = await pipeline("feature-extraction", EMBED_MODEL, {
+    dtype: "q8",
+    progress_callback: (p) => {
+      if (p.status === "progress" && p.file?.endsWith(".onnx"))
+        status(`Downloading model: ${Math.round(p.progress)}%`);
+    },
+  });
+
+  $("file").disabled = false;
+  status("Ready. Upload a CSV to begin.");
+}
+
+$("file").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  csvText = await file.text();
+  try {
+    pyodide.globals.set("csv_text", csvText);
+    const cols = pyodide.runPython("text_columns(csv_text)").toJs();
+    const sel = $("column");
+    sel.innerHTML = "";
+    if (!cols.length) { status("No text-like columns found in that file.", true); return; }
+    cols.forEach((c) => sel.add(new Option(c, c)));
+    sel.disabled = false;
+    $("run").disabled = false;
+    status(`Found ${cols.length} text column(s). Choose one and click Analyze.`);
+  } catch (err) { status(String(err), true); }
+});
+
+$("run").addEventListener("click", async () => {
+  $("run").disabled = true;
+  try {
+    pyodide.globals.set("column", $("column").value);
+    // Keep docs as a Python global so clustering reuses them — no second CSV parse.
+    const docs = pyodide.runPython("docs = extract_docs(csv_text, column)\ndocs").toJs();
+    if (!docs.length) { status("That column has no usable text.", true); $("run").disabled = false; return; }
+
+    status(`Embedding ${docs.length} documents…`);
+    const output = await embedder(docs, { pooling: "mean", normalize: true });
+    const embeddings = output.tolist();
+
+    status("Clustering into topics…");
+    await new Promise((r) => setTimeout(r));  // let the status paint before the sync cluster call
+    pyodide.globals.set("embeddings", pyodide.toPy(embeddings));
+    pyodide.globals.set("min_size", parseInt($("minsize").value, 10));
+    const json = pyodide.runPython("fit_topics_json(docs, embeddings, min_size)");
+    render(JSON.parse(json));
+    status("Done.");
+  } catch (err) { status(String(err), true); }
+  $("run").disabled = false;
+});
+
+function render(topics) {
+  const rows = topics.map((t) =>
+    `<tr class="${t.outlier ? "outlier" : ""}"><td>${t.topic}${t.outlier ? " (outliers)" : ""}</td>` +
+    `<td>${t.count}</td><td>${t.words}</td></tr>`).join("");
+  $("results").innerHTML =
+    `<table><thead><tr><th>Topic</th><th>Docs</th><th>Top words</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+boot().catch((e) => status("Failed to start: " + e, true));
+</script>
+</body>
+</html>
