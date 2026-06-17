@@ -83,7 +83,7 @@ if uploaded_file is not None:
         st.error(f"Unable to read the uploaded CSV: {exc}")
         st.stop()
 
-    st.dataframe(data_frame.head(), use_container_width=True)
+    st.dataframe(data_frame, use_container_width=True)
 
     if data_frame.empty:
         st.warning("The uploaded CSV is empty.")

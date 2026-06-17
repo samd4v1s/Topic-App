@@ -45,7 +45,7 @@ class AdvancedTopicModeler:
         self.embedding_model = SentenceTransformer(embedding_model_name)
         self.umap_model = UMAP(n_neighbors=5, metric="cosine")
         self.hdbscan_model = HDBSCAN(
-            min_cluster_size=10,
+            min_cluster_size=2,
             metric="euclidean",
             cluster_selection_method="eom",
         )
