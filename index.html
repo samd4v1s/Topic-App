@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Team Topic Modeler - Serverless</title>
-    <script defer src="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.31.1/build/stlite.js"></script>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'><text y='32' font-size='32'>📊</text></svg>">
     <style>
         html, body {
             margin: 0;
@@ -22,22 +22,32 @@
 </head>
 <body>
     <div id="root"></div>
+    <script src="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.31.1/build/stlite.js"></script>
     <script>
-        stlite.mount(
-            {
-                requirements: ["scikit-learn", "pandas", "numpy"],
-                entrypoint: "app.py",
-                files: {
-                    "app.py": {
-                        url: "./app.py"
+        // Wait for stlite to be defined, then mount
+        function initStlite() {
+            if (typeof stlite !== 'undefined') {
+                stlite.mount(
+                    {
+                        requirements: ["scikit-learn", "pandas", "numpy"],
+                        entrypoint: "app.py",
+                        files: {
+                            "app.py": {
+                                url: "./app.py"
+                            },
+                            "pyodide_topic_modeler.py": {
+                                url: "./pyodide_topic_modeler.py"
+                            }
+                        }
                     },
-                    "pyodide_topic_modeler.py": {
-                        url: "./pyodide_topic_modeler.py"
-                    }
-                }
-            },
-            document.getElementById("root")
-        );
+                    document.getElementById("root")
+                );
+            } else {
+                // Retry in 100ms if stlite isn't ready yet
+                setTimeout(initStlite, 100);
+            }
+        }
+        initStlite();
     </script>
 </body>
 </html>
