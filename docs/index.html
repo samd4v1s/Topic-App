@@ -54,7 +54,6 @@ import { pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers
 const EMBED_MODEL = "Xenova/all-MiniLM-L6-v2";
 const $ = (id) => document.getElementById(id);
 const status = (msg, isErr) => { $("status").textContent = msg; $("status").className = isErr ? "err" : ""; };
-const yield_ = () => new Promise((r) => setTimeout(r, 10));
 
 let pyodide, embedder, csvText = null;
 
@@ -97,21 +96,20 @@ $("file").addEventListener("change", async (e) => {
 $("run").addEventListener("click", async () => {
   $("run").disabled = true;
   try {
-    pyodide.globals.set("csv_text", csvText);
     pyodide.globals.set("column", $("column").value);
-    const docs = pyodide.runPython("extract_docs(csv_text, column)").toJs();
+    // Keep docs as a Python global so clustering reuses them — no second CSV parse.
+    const docs = pyodide.runPython("docs = extract_docs(csv_text, column)\ndocs").toJs();
     if (!docs.length) { status("That column has no usable text.", true); $("run").disabled = false; return; }
 
     status(`Embedding ${docs.length} documents…`);
-    await yield_();
     const output = await embedder(docs, { pooling: "mean", normalize: true });
     const embeddings = output.tolist();
 
     status("Clustering into topics…");
-    await yield_();
+    await new Promise((r) => setTimeout(r));  // let the status paint before the sync cluster call
     pyodide.globals.set("embeddings", pyodide.toPy(embeddings));
     pyodide.globals.set("min_size", parseInt($("minsize").value, 10));
-    const json = pyodide.runPython("fit_topics_json(csv_text, column, embeddings, min_size)");
+    const json = pyodide.runPython("fit_topics_json(docs, embeddings, min_size)");
     render(JSON.parse(json));
     status("Done.");
   } catch (err) { status(String(err), true); }

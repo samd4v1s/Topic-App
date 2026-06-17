@@ -44,7 +44,7 @@ def extract_docs(csv_text: str, column: str) -> list[str]:
 
 
 def fit_topics_from_embeddings(
-    embeddings, docs: list[str], min_cluster_size: int = 5, n_words: int = 10
+    embeddings, docs: list[str], min_cluster_size: int = 5
 ) -> list[dict]:
     """Reduce, cluster, and label documents using their embeddings.
 
@@ -66,10 +66,10 @@ def fit_topics_from_embeddings(
 
     mcs = max(2, min(int(min_cluster_size), n))
     labels = HDBSCAN(min_cluster_size=mcs).fit_predict(points)
-    return _ctfidf_topics(labels, docs, n_words)
+    return _ctfidf_topics(labels, docs)
 
 
-def _ctfidf_topics(labels, docs: list[str], n_words: int) -> list[dict]:
+def _ctfidf_topics(labels, docs: list[str], n_words: int = 10) -> list[dict]:
     """Label each cluster with its most distinctive words via class-based TF-IDF."""
     labels = np.asarray(labels)
     uniq = sorted(set(labels.tolist()))
@@ -105,9 +105,6 @@ def _ctfidf_topics(labels, docs: list[str], n_words: int) -> list[dict]:
     return topics
 
 
-def fit_topics_json(
-    csv_text: str, column: str, embeddings, min_cluster_size: int = 5
-) -> str:
-    """JSON wrapper: re-extract docs from the CSV and cluster with the embeddings."""
-    docs = extract_docs(csv_text, column)
-    return json.dumps(fit_topics_from_embeddings(embeddings, docs, min_cluster_size))
+def fit_topics_json(docs, embeddings, min_cluster_size: int = 5) -> str:
+    """JSON wrapper so Pyodide can hand results back to JavaScript as a string."""
+    return json.dumps(fit_topics_from_embeddings(embeddings, list(docs), min_cluster_size))
