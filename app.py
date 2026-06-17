@@ -1,0 +1,106 @@
+"""Streamlit frontend for serverless topic modeling using Pyodide."""
+
+from __future__ import annotations
+
+import json
+
+import numpy as np
+import pandas as pd
+import streamlit as st
+
+from pyodide_topic_modeler import PyodideTopicModeler
+
+
+st.set_page_config(page_title="Team Topic Modeler (stlite)", layout="wide")
+
+if "topic_model" not in st.session_state:
+    st.session_state.topic_model: PyodideTopicModeler | None = None
+if "documents" not in st.session_state:
+    st.session_state.documents: list[str] | None = None
+
+
+
+
+
+st.title("🧠 Team Topic Modeler (stlite)")
+st.caption("Serverless topic modeling in your browser using Pyodide + scikit-learn")
+
+with st.sidebar:
+    st.header("💾 Model Memory")
+    uploaded_model = st.file_uploader(
+        "Load a saved model (JSON)", type=["json"], key="sidebar_model_upload"
+    )
+    if uploaded_model is not None:
+        try:
+            model_json = uploaded_model.read().decode("utf-8")
+            new_model = PyodideTopicModeler()
+            new_model.import_model_state(model_json)
+            st.session_state.topic_model = new_model
+            st.success("Model loaded successfully!")
+        except Exception as exc:
+            st.error(f"Failed to load model: {exc}")
+
+st.subheader("📤 Upload Documents")
+uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"])
+
+if uploaded_file is not None:
+    try:
+        data_frame = pd.read_csv(uploaded_file)
+    except Exception as exc:
+        st.error(f"Unable to read CSV: {exc}")
+        st.stop()
+
+    st.dataframe(data_frame, use_container_width=True)
+
+    if data_frame.empty:
+        st.warning("The uploaded CSV is empty.")
+        st.stop()
+
+    text_columns = [
+        col
+        for col in data_frame.columns
+        if pd.api.types.is_object_dtype(data_frame[col])
+        or pd.api.types.is_string_dtype(data_frame[col])
+    ]
+    if not text_columns:
+        st.warning("No text-like columns found in the CSV.")
+        st.stop()
+
+    selected_column = st.selectbox("Select the text column to analyze", text_columns)
+
+    if st.button("🚀 Analyze Documents"):
+        documents = [
+            str(value).strip()
+            for value in data_frame[selected_column].tolist()
+            if str(value).strip()
+        ]
+
+        if not documents:
+            st.warning("The selected column contains no usable text values.")
+        else:
+            with st.spinner("Training topic model with LSA embeddings..."):
+                model = PyodideTopicModeler(clustering_method="kmeans", n_clusters=3)
+                model.fit_transform(documents)
+                st.session_state.topic_model = model
+                st.session_state.documents = documents
+
+            st.success("Topic model trained successfully!")
+            topic_info = st.session_state.topic_model.get_topic_info()
+            st.subheader("📊 Topic Results")
+            st.dataframe(topic_info, use_container_width=True)
+
+if st.session_state.get("topic_model") is not None:
+    st.divider()
+    st.subheader("💾 Export Model")
+
+    if st.button("Download Model as JSON"):
+        try:
+            model_json = st.session_state.topic_model.export_model_state()
+            st.download_button(
+                label="📥 Download Model",
+                data=model_json,
+                file_name="topic_model.json",
+                mime="application/json",
+            )
+        except Exception as exc:
+            st.error(f"Failed to export model: {exc}")
