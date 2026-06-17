@@ -207,3 +207,19 @@ marimo/_lsp/
 __marimo__/
 /data
 .DS_Store
+
+
+# Ignore all data files
+*.csv
+*.xlsx
+*.txt
+
+# Ignore all Stlite/Pyodide exported memory states
+*.json
+saved_models/
+
+# Ignore Python cache and environment files
+__pycache__/
+.pytest_cache/
+.venv/
+.env
