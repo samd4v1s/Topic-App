@@ -582,8 +582,8 @@
 
             try {
                 // Extract documents from selected column
-                currentDocuments = currentData[selectedColumn]
-                    .map(v => String(v).trim())
+                currentDocuments = currentData
+                    .map(row => String(row[selectedColumn]).trim())
                     .filter(v => v.length > 0);
 
                 if (currentDocuments.length < 2) {
