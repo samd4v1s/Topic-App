@@ -490,7 +490,6 @@
     </div>
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers@2.6.0"></script>
 
     <script>
         let pyodide = null;
@@ -519,13 +518,26 @@
 
         // Initialize Transformers.js
         async function initTransformers() {
-            try {
-                window.TransformersPipeline = await transformers.pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");
-                console.log("Transformers.js loaded successfully");
-            } catch (error) {
-                console.error("Transformers initialization error:", error);
-            }
-        }
+    try {
+        updateStatus("Downloading AI Model (~22MB)...", "info");
+        
+        // 1. Dynamically import the Transformers library
+        const { pipeline, env } = await import("https://cdn.jsdelivr.net/npm/@xenova/transformers@2.6.0");
+        
+        // Optional: Stop the library from looking for models on your local hard drive 
+        // (Prevents annoying 404 errors in the console)
+        env.allowLocalModels = false;
+
+        // 2. Download and load the embedding model
+        window.TransformersPipeline = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");
+        
+        updateStatus("AI Models Loaded & Ready!", "success");
+        console.log("Transformers.js loaded successfully");
+    } catch (error) {
+        console.error("Transformers initialization error:", error);
+        updateStatus("Error loading Transformers.js", "error");
+    }
+}
 
         // Generate embeddings using Transformers.js
         async function generateEmbeddings(documents) {
