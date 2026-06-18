@@ -505,8 +505,9 @@
                 pyodide = await loadPyodide();
                 await pyodide.loadPackage(["numpy", "pandas", "scikit-learn"]);
                 
+                // Fetch and write topic_pyodide.py to Pyodide filesystem
                 const topicModelerCode = await fetch("topic_pyodide.py").then(r => r.text());
-                pyodide.runPython(topicModelerCode);
+                pyodide.FS.writeFile("/topic_pyodide.py", topicModelerCode);
                 
                 updateStatus("Ready", "success");
                 console.log("Pyodide initialized successfully");
@@ -618,6 +619,9 @@
         // Run analysis in Pyodide
         async function runPyodideAnalysis(embeddings, documents) {
             try {
+                // First, import sys to ensure we can import from current dir
+                pyodide.runPython("import sys; sys.path.insert(0, '/')");
+                
                 const pythonCode = `
 import json
 from topic_pyodide import PyodideTopicModeler
